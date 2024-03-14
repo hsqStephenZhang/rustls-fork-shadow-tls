@@ -554,7 +554,7 @@ impl ClientConnection {
     /// Make a new ClientConnection with a session id generator.  `config` controls how
     pub fn new_with_session_id_generator(
         config: Arc<ClientConfig>,
-        name: ServerName<'static>,
+        name: ServerName,
         generator: Option<impl Fn(&[u8]) -> [u8; 32]>,
     ) -> Result<Self, Error> {
         Ok(Self {
@@ -684,13 +684,14 @@ impl ConnectionCore<ClientConnectionData> {
             data: &mut data,
         };
 
-        let state = hs::start_handshake::<fn(&[u8]) -> [u8; 32]>(name, extra_exts, config, &mut cx, None)?;
+        let state =
+            hs::start_handshake::<fn(&[u8]) -> [u8; 32]>(name, extra_exts, config, &mut cx, None)?;
         Ok(Self::new(state, data, common_state))
     }
 
     pub(crate) fn for_client_with_session_id_generator(
         config: Arc<ClientConfig>,
-        name: ServerName<'static>,
+        name: ServerName,
         extra_exts: Vec<ClientExtension>,
         proto: Protocol,
         generator: Option<impl Fn(&[u8]) -> [u8; 32]>,
@@ -698,7 +699,10 @@ impl ConnectionCore<ClientConnectionData> {
         let mut common_state = CommonState::new(Side::Client);
         common_state.set_max_fragment_size(config.max_fragment_size)?;
         common_state.protocol = proto;
-        common_state.enable_secret_extraction = config.enable_secret_extraction;
+        #[cfg(feature = "secret_extraction")]
+        {
+            common_state.enable_secret_extraction = config.enable_secret_extraction;
+        }
         let mut data = ClientConnectionData::new();
 
         let mut cx = hs::ClientContext {
